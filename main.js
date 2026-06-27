@@ -1,8 +1,10 @@
 const { app, BrowserWindow, screen, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 const WIN_SIZE = 160;
+const STATUS_PORT = 37123;   // Claude Code hooks 往这个本地端口发状态
 
 let win;
 let chatWin = null;       // 聊天窗口
@@ -299,8 +301,39 @@ async function startBehaviorLoop() {
   }
 }
 
+// ---- 感知 Claude Code 状态：本地 HTTP 监听 ----
+function handleStatus(s) {
+  if (!win || win.isDestroyed()) return;
+  if (s === 'working') {
+    win.webContents.send('pet-status', { text: '工作中…', ms: 0 });   // ms:0 = 常驻
+  } else if (s === 'waiting') {
+    win.webContents.send('pet-status', { text: '等你操作', ms: 0 });
+  } else if (s === 'done') {
+    win.webContents.send('pet-status', { text: '搞定了！', ms: 3000 });
+    win.webContents.send('pet-play', 'cheer');                        // 完成小动画
+  } else if (s === 'clear') {
+    win.webContents.send('pet-status', { text: '', ms: 1 });
+  }
+}
+
+function startStatusServer() {
+  const server = http.createServer((req, res) => {
+    try {
+      const u = new URL(req.url, 'http://127.0.0.1');
+      const s = u.searchParams.get('s');
+      if (s) handleStatus(s);
+    } catch { /* 忽略畸形请求 */ }
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('ok');
+  });
+  // 只监听本机回环地址，外部访问不到
+  server.on('error', (e) => console.error('状态端口启动失败:', e.message));
+  server.listen(STATUS_PORT, '127.0.0.1');
+}
+
 app.whenReady().then(() => {
   createWindow();
+  startStatusServer();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

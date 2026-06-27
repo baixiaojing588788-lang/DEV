@@ -77,10 +77,11 @@
       return list;
     }
 
-    // 两种动画：待机(scratch) 和 走路(walk)
+    // 动画：待机(scratch)、走路(walk)、完成(cheer，一次性)
     const ANIMS = {
       idle: { list: frames('scratch', 6), fps: 8 },
       walk: { list: frames('walk', 8), fps: 10 },
+      cheer: { list: frames('cheer', 5), fps: 10 },
     };
 
     // 预加载所有帧，避免切换时闪烁
@@ -115,20 +116,54 @@
       pet.style.transform = facing === 'right' ? 'scaleX(-1)' : 'scaleX(1)';
     }
 
-    // 收主进程的指令
+    // 一次性动画（如完成时的 cheer）：播一遍后回到待机；播放期间忽略走动指令
+    let oneShotActive = false;
+    function playOnce(name, repeats = 2) {
+      const a = ANIMS[name];
+      if (!a) return;
+      oneShotActive = true;
+      clearInterval(timer);
+      const total = a.list.length * repeats;
+      let n = 0;
+      pet.src = a.list[0];
+      const t = setInterval(() => {
+        n++;
+        if (n >= total) {
+          clearInterval(t);
+          oneShotActive = false;
+          currentAnim = null;   // 强制重新进入待机
+          play('idle');
+          return;
+        }
+        pet.src = a.list[n % a.list.length];
+      }, 1000 / a.fps);
+    }
+
+    // 收主进程的指令（一次性动画期间不打断）
     window.petAPI.onState(({ anim, facing }) => {
+      if (oneShotActive) return;
       play(anim);
       setFacing(facing);
     });
 
-    // 说话：显示气泡，2.5 秒后消失
+    // 气泡：ms>0 自动消失，ms=0 常驻，空文本则隐藏
     let bubbleTimer = null;
-    window.petAPI.onSay((text) => {
+    function showBubble(text, ms) {
+      clearTimeout(bubbleTimer);
+      if (!text) { bubble.classList.remove('show'); return; }
       bubble.textContent = text;
       bubble.classList.add('show');
-      clearTimeout(bubbleTimer);
-      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 2500);
-    });
+      if (ms > 0) bubbleTimer = setTimeout(() => bubble.classList.remove('show'), ms);
+    }
+
+    // 打招呼：2.5 秒后消失
+    window.petAPI.onSay((text) => showBubble(text, 2500));
+
+    // Claude Code 状态气泡
+    window.petAPI.onStatus(({ text, ms }) => showBubble(text, ms));
+
+    // 一次性动画
+    window.petAPI.onPlay((name) => playOnce(name));
 
     // 暂停 / 继续
     window.petAPI.onPause((p) => {

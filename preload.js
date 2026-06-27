@@ -6,6 +6,10 @@ contextBridge.exposeInMainWorld('petAPI', {
   onState: (cb) => ipcRenderer.on('pet-state', (_e, data) => cb(data)),
   // 说一句话（显示气泡）
   onSay: (cb) => ipcRenderer.on('pet-say', (_e, text) => cb(text)),
+  // Claude Code 状态气泡（{ text, ms }，ms:0 表示常驻）
+  onStatus: (cb) => ipcRenderer.on('pet-status', (_e, data) => cb(data)),
+  // 播放一次性动画（如 cheer 完成动画）
+  onPlay: (cb) => ipcRenderer.on('pet-play', (_e, name) => cb(name)),
   // 暂停 / 继续
   onPause: (cb) => ipcRenderer.on('pet-pause', (_e, p) => cb(p)),
 
