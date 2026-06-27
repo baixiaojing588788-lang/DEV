@@ -1,9 +1,10 @@
-const { app, BrowserWindow, screen } = require('electron');
+const { app, BrowserWindow, screen, Menu } = require('electron');
 const path = require('path');
 
 const WIN_SIZE = 160;
 
 let win;
+let paused = false;   // 暂停标志：控制走动和动画
 
 function createWindow() {
   win = new BrowserWindow({
@@ -22,10 +23,38 @@ function createWindow() {
 
   win.loadFile('index.html');
 
+  // 右键弹出 Mac 原生菜单
+  win.webContents.on('context-menu', () => showMenu());
+
   // 等画面加载完，再开始自动走动的循环
   win.webContents.on('did-finish-load', () => {
     startBehaviorLoop();
   });
+}
+
+// ---- 右键菜单（系统原生样式）----
+function showMenu() {
+  const menu = Menu.buildFromTemplate([
+    {
+      label: '打招呼',
+      click: () => win.webContents.send('pet-say', '你好呀'),
+    },
+    {
+      label: paused ? '继续' : '暂停',
+      click: () => togglePause(),
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => app.quit(),
+    },
+  ]);
+  menu.popup({ window: win });
+}
+
+function togglePause() {
+  paused = !paused;
+  win.webContents.send('pet-pause', paused); // 通知画面暂停/继续动画
 }
 
 // ---- 告诉画面：现在播什么动画、朝哪边 ----
@@ -36,7 +65,21 @@ function setState(anim, facing) {
 }
 
 // ---- 小工具 ----
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// 可暂停的等待：paused 时不倒计时
+function sleep(ms) {
+  return new Promise((resolve) => {
+    let remaining = ms;
+    const step = 50;
+    const t = setInterval(() => {
+      if (paused) return;
+      remaining -= step;
+      if (remaining <= 0) {
+        clearInterval(t);
+        resolve();
+      }
+    }, step);
+  });
+}
 const rand = (min, max) => min + Math.random() * (max - min);
 
 // 把窗口横向移动到 targetX，边走边播走路动画
@@ -51,6 +94,7 @@ function walkTo(targetX) {
     setState('walk', dir > 0 ? 'right' : 'left');
 
     const timer = setInterval(() => {
+      if (paused) return;   // 暂停时原地不动
       const [x] = win.getPosition();
       if (Math.abs(x - targetX) <= SPEED) {
         win.setPosition(Math.round(targetX), y);

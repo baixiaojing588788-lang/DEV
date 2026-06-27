@@ -26,13 +26,46 @@
       user-select: none;
       -webkit-user-drag: none;
     }
+
+    /* 说话气泡：浮在窗口上方中间 */
+    #bubble {
+      position: absolute;
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 150px;
+      padding: 4px 10px;
+      background: #fff;
+      color: #333;
+      font: 13px/1.3 -apple-system, "PingFang SC", sans-serif;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    #bubble.show { opacity: 1; }
+    /* 气泡下方的小三角 */
+    #bubble::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -5px;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: #fff;
+      border-bottom: 0;
+    }
   </style>
 </head>
 <body>
+  <div id="bubble"></div>
   <img id="pet" alt="pet" />
 
   <script>
     const pet = document.getElementById('pet');
+    const bubble = document.getElementById('bubble');
     const BASE = 'assets/little-mao-puppy/frames/';
 
     // 生成帧路径列表，例如 frames('scratch', 6) -> [.../scratch/01.png, ...]
@@ -58,18 +91,23 @@
     let timer = null;
     let currentAnim = null;
     let idx = 0;
+    let paused = false;
 
-    function play(anim) {
-      if (anim === currentAnim) return; // 已经在播了就不重置
-      currentAnim = anim;
-      idx = 0;
-      const { list, fps } = ANIMS[anim];
-      pet.src = list[0];
+    function startTimer() {
+      const { list, fps } = ANIMS[currentAnim];
       clearInterval(timer);
       timer = setInterval(() => {
         idx = (idx + 1) % list.length;
         pet.src = list[idx];
       }, 1000 / fps);
+    }
+
+    function play(anim) {
+      if (anim === currentAnim) return; // 已经在播了就不重置
+      currentAnim = anim;
+      idx = 0;
+      pet.src = ANIMS[anim].list[0];
+      if (!paused) startTimer();
     }
 
     // 朝向：素材默认朝右，朝左时水平翻转
@@ -81,6 +119,25 @@
     window.petAPI.onState(({ anim, facing }) => {
       play(anim);
       setFacing(facing);
+    });
+
+    // 说话：显示气泡，2.5 秒后消失
+    let bubbleTimer = null;
+    window.petAPI.onSay((text) => {
+      bubble.textContent = text;
+      bubble.classList.add('show');
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 2500);
+    });
+
+    // 暂停 / 继续
+    window.petAPI.onPause((p) => {
+      paused = p;
+      if (paused) {
+        clearInterval(timer);     // 停在当前帧
+      } else if (currentAnim) {
+        startTimer();             // 从当前帧继续
+      }
     });
 
     // 万一消息还没来，先默认待机
