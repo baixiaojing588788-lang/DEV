@@ -28,6 +28,12 @@ const PETS = {
     dir: 'assets/hema-pet',
     persona: '你是一只友好的蓝色河马吉祥物，名叫“Hema”。用简短、亲切、口语化的中文回复，偶尔俏皮一点。',
   },
+  'luffy': {
+    id: 'luffy',
+    name: 'Luffy',
+    dir: 'assets/luffy-pet',
+    persona: '你是一只戴草帽的橡皮海贼船长 chibi，名叫“Luffy”。性格乐观勇敢、有点傻气，用简短、热血、口语化的中文回复。',
+  },
 };
 function currentTheme() {
   return PETS[loadConfig().theme] || PETS['little-mao-puppy'];
