@@ -189,7 +189,7 @@ function openSettings() {
     resizable: false,
     title: '设置',
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#f1f0fd',
     webPreferences: {
       preload: path.join(__dirname, 'settings-preload.js'),
     },

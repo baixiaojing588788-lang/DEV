@@ -5,39 +5,49 @@
   <style>
     * { box-sizing: border-box; }
     :root {
-      --bg: #1c1c1e;
-      --text: #f2f2f7;
-      --muted: #8e8e93;
-      --field: #2c2c2e;
-      --blue: #0a84ff;
+      --accent: #6172f3;
+      --accent2: #8b7cf6;
+      --text: #2b2b3a;
+      --muted: #9aa0b4;
+      --shadow: 0 4px 16px rgba(90, 90, 170, 0.10);
     }
     html, body {
       margin: 0; height: 100%;
       font-family: -apple-system, "PingFang SC", sans-serif;
-      background: var(--bg); color: var(--text);
+      color: var(--text);
+      background: linear-gradient(180deg, #f4f2fe 0%, #eef1fe 50%, #e9f1ff 100%);
     }
     .titlebar {
       -webkit-app-region: drag;
       height: 38px;
     }
     .body { padding: 4px 24px 24px; }
-    h1 { font-size: 17px; margin: 0 0 4px; }
+    h1 {
+      font-size: 17px; margin: 0 0 4px;
+      background: linear-gradient(120deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
     .hint { font-size: 12px; color: var(--muted); margin: 0 0 16px; }
     label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 5px; }
     input {
-      width: 100%; padding: 9px 12px; font-size: 13px;
-      color: var(--text); background: var(--field);
-      border: 1px solid transparent; border-radius: 10px; outline: none;
+      width: 100%; padding: 10px 13px; font-size: 13px;
+      color: var(--text); background: #fff;
+      border: 1px solid transparent; border-radius: 12px; outline: none;
+      box-shadow: var(--shadow);
     }
     input::placeholder { color: var(--muted); }
-    input:focus { border-color: var(--blue); }
+    input:focus { border-color: var(--accent); }
     .row-btns { margin-top: 22px; display: flex; justify-content: flex-end; gap: 10px; }
     button {
-      padding: 9px 18px; font-size: 13px; border-radius: 10px; cursor: pointer; border: none;
+      padding: 9px 18px; font-size: 13px; border-radius: 12px; cursor: pointer; border: none;
     }
-    #cancel { background: #3a3a3c; color: var(--text); }
-    #save { background: var(--blue); color: #fff; }
-    #status { font-size: 12px; color: #30d158; margin-top: 12px; height: 16px; }
+    #cancel { background: #fff; color: var(--text); box-shadow: var(--shadow); }
+    #save {
+      background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+      box-shadow: 0 4px 12px rgba(97, 114, 243, 0.32);
+    }
+    #status { font-size: 12px; color: #2bb673; margin-top: 12px; height: 16px; }
   </style>
 </head>
 <body>
