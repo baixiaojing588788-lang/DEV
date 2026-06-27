@@ -167,7 +167,7 @@ function openChat() {
     minHeight: 380,
     title: '小鸡毛',
     titleBarStyle: 'hiddenInset',   // Mac 风格：保留红绿灯按钮，标题栏自定义
-    backgroundColor: '#1c1c1e',     // 深色
+    backgroundColor: '#f1f0fd',     // 浅色（与渐变背景匹配）
     webPreferences: {
       preload: path.join(__dirname, 'chat-preload.js'),
     },
