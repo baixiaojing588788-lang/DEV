@@ -29,6 +29,62 @@
   </style>
 </head>
 <body>
-  <img id="pet" src="assets/little-mao-puppy/frames/walk/01.png" alt="pet" />
+  <img id="pet" alt="pet" />
+
+  <script>
+    const pet = document.getElementById('pet');
+    const BASE = 'assets/little-mao-puppy/frames/';
+
+    // 生成帧路径列表，例如 frames('scratch', 6) -> [.../scratch/01.png, ...]
+    function frames(name, count) {
+      const list = [];
+      for (let i = 1; i <= count; i++) {
+        list.push(BASE + name + '/' + String(i).padStart(2, '0') + '.png');
+      }
+      return list;
+    }
+
+    // 两种动画：待机(scratch) 和 走路(walk)
+    const ANIMS = {
+      idle: { list: frames('scratch', 6), fps: 8 },
+      walk: { list: frames('walk', 8), fps: 10 },
+    };
+
+    // 预加载所有帧，避免切换时闪烁
+    Object.values(ANIMS).forEach((a) =>
+      a.list.forEach((src) => { const im = new Image(); im.src = src; })
+    );
+
+    let timer = null;
+    let currentAnim = null;
+    let idx = 0;
+
+    function play(anim) {
+      if (anim === currentAnim) return; // 已经在播了就不重置
+      currentAnim = anim;
+      idx = 0;
+      const { list, fps } = ANIMS[anim];
+      pet.src = list[0];
+      clearInterval(timer);
+      timer = setInterval(() => {
+        idx = (idx + 1) % list.length;
+        pet.src = list[idx];
+      }, 1000 / fps);
+    }
+
+    // 朝向：素材默认朝右，朝左时水平翻转
+    function setFacing(facing) {
+      pet.style.transform = facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)';
+    }
+
+    // 收主进程的指令
+    window.petAPI.onState(({ anim, facing }) => {
+      play(anim);
+      setFacing(facing);
+    });
+
+    // 万一消息还没来，先默认待机
+    play('idle');
+  </script>
 </body>
 </html>
