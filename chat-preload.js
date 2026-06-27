@@ -9,4 +9,7 @@ contextBridge.exposeInMainWorld('chatAPI', {
   onError: (cb) => ipcRenderer.on('chat-error', (_e, m) => cb(m)),
   // 打开设置窗口
   openSettings: () => ipcRenderer.send('open-settings'),
+  // 当前主题 + 主题切换
+  getTheme: () => ipcRenderer.invoke('theme-get'),
+  onTheme: (cb) => ipcRenderer.on('chat-theme', (_e, t) => cb(t)),
 });

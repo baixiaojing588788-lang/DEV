@@ -1,3 +1,6 @@
 node_modules/
 .tools/
 config.json
+.DS_Store
+# 原始素材拖放目录（已复制进 assets/，无需入库）
+/hema-pet/

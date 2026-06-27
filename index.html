@@ -66,33 +66,40 @@
   <script>
     const pet = document.getElementById('pet');
     const bubble = document.getElementById('bubble');
-    const BASE = 'assets/little-mao-puppy/frames/';
 
-    // 生成帧路径列表，例如 frames('scratch', 6) -> [.../scratch/01.png, ...]
-    function frames(name, count) {
+    // 生成帧路径列表，例如 frames('scratch', 6, base) -> [base+scratch/01.png, ...]
+    function frames(name, count, base) {
       const list = [];
       for (let i = 1; i <= count; i++) {
-        list.push(BASE + name + '/' + String(i).padStart(2, '0') + '.png');
+        list.push(base + name + '/' + String(i).padStart(2, '0') + '.png');
       }
       return list;
     }
 
-    // 动画：待机(scratch)、走路(walk)、完成(cheer，一次性)
-    const ANIMS = {
-      idle: { list: frames('scratch', 6), fps: 8 },
-      walk: { list: frames('walk', 8), fps: 10 },
-      cheer: { list: frames('cheer', 5), fps: 10 },
-    };
-
-    // 预加载所有帧，避免切换时闪烁
-    Object.values(ANIMS).forEach((a) =>
-      a.list.forEach((src) => { const im = new Image(); im.src = src; })
-    );
-
+    // 动画在应用主题时构建（不同宠物素材目录不同，帧结构相同）
+    let ANIMS = null;
     let timer = null;
     let currentAnim = null;
     let idx = 0;
     let paused = false;
+
+    // 应用某个主题（dir 形如 "assets/hema-pet"）
+    function applyTheme(dir) {
+      const base = dir + '/frames/';
+      ANIMS = {
+        idle: { list: frames('scratch', 6, base), fps: 8 },
+        walk: { list: frames('walk', 8, base), fps: 10 },
+        cheer: { list: frames('cheer', 5, base), fps: 10 },
+      };
+      // 预加载新素材
+      Object.values(ANIMS).forEach((a) =>
+        a.list.forEach((src) => { const im = new Image(); im.src = src; })
+      );
+      // 用新素材重放当前动画
+      const anim = currentAnim || 'idle';
+      currentAnim = null;
+      if (!oneShotActive) play(anim);
+    }
 
     function startTimer() {
       const { list, fps } = ANIMS[currentAnim];
@@ -104,6 +111,7 @@
     }
 
     function play(anim) {
+      if (!ANIMS) return;               // 主题还没到位
       if (anim === currentAnim) return; // 已经在播了就不重置
       currentAnim = anim;
       idx = 0;
@@ -119,6 +127,7 @@
     // 一次性动画（如完成时的 cheer）：播一遍后回到待机；播放期间忽略走动指令
     let oneShotActive = false;
     function playOnce(name, repeats = 2) {
+      if (!ANIMS) return;
       const a = ANIMS[name];
       if (!a) return;
       oneShotActive = true;
@@ -165,6 +174,9 @@
     // 一次性动画
     window.petAPI.onPlay((name) => playOnce(name));
 
+    // 切换主题：换素材目录
+    window.petAPI.onTheme((t) => applyTheme(t.dir));
+
     // 暂停 / 继续
     window.petAPI.onPause((p) => {
       paused = p;
@@ -207,8 +219,7 @@
     pet.addEventListener('mouseenter', () => window.petAPI.setHover(true));
     pet.addEventListener('mouseleave', () => window.petAPI.setHover(false));
 
-    // 万一消息还没来，先默认待机
-    play('idle');
+    // 主题会在 did-finish-load 时由主进程下发，applyTheme 里会开始待机
   </script>
 </body>
 </html>

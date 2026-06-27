@@ -14,11 +14,31 @@ let dragging = false;     // 正在被鼠标拖动
 let hovering = false;     // 鼠标悬停在身上
 let homeX = 0;            // "家"的横坐标，走完会回到这里（拖动后会更新）
 
+// ---- 可切换的宠物主题（帧结构相同，仅素材目录/名字/人设不同）----
+const PETS = {
+  'little-mao-puppy': {
+    id: 'little-mao-puppy',
+    name: '小鸡毛',
+    dir: 'assets/little-mao-puppy',
+    persona: '你是一只可爱的桌面宠物小狗，名叫“小鸡毛”。用简短、亲切、口语化的中文回复，偶尔俏皮一点。',
+  },
+  'hema': {
+    id: 'hema',
+    name: 'Hema',
+    dir: 'assets/hema-pet',
+    persona: '你是一只友好的蓝色河马吉祥物，名叫“Hema”。用简短、亲切、口语化的中文回复，偶尔俏皮一点。',
+  },
+};
+function currentTheme() {
+  return PETS[loadConfig().theme] || PETS['little-mao-puppy'];
+}
+
 // ---- 本地配置（存在应用数据目录，不在项目里，也不会进 Git）----
 const DEFAULT_CONFIG = {
   apiKey: '',
   model: 'anthropic/claude-haiku-4.5',
   baseURL: 'https://openrouter.ai/api/v1',
+  theme: 'little-mao-puppy',
 };
 function configPath() {
   return path.join(app.getPath('userData'), 'config.json');
@@ -71,10 +91,20 @@ function createWindow() {
   // 鼠标悬停：停下；移开：继续
   ipcMain.on('pet-hover', (_e, isHovering) => { hovering = isHovering; });
 
-  // 等画面加载完，再开始自动走动的循环
+  // 等画面加载完，先应用当前主题，再开始自动走动的循环
   win.webContents.on('did-finish-load', () => {
+    win.webContents.send('pet-theme', currentTheme());
     startBehaviorLoop();
   });
+}
+
+// 切换宠物主题：存配置 + 通知桌宠和聊天窗口
+function setTheme(id) {
+  if (!PETS[id]) return;
+  saveConfig({ theme: id });
+  const t = currentTheme();
+  if (win && !win.isDestroyed()) win.webContents.send('pet-theme', t);
+  if (chatWin && !chatWin.isDestroyed()) chatWin.webContents.send('chat-theme', t);
 }
 
 // ---- 右键菜单（系统原生样式）----
@@ -87,6 +117,15 @@ function showMenu() {
     {
       label: '聊天',
       click: () => openChat(),
+    },
+    {
+      label: '切换主题',
+      submenu: Object.values(PETS).map((p) => ({
+        label: p.name,
+        type: 'radio',
+        checked: p.id === loadConfig().theme,
+        click: () => setTheme(p.id),
+      })),
     },
     { type: 'separator' },
     {
@@ -152,6 +191,9 @@ function openSettings() {
   settingsWin.loadFile('settings.html');
   settingsWin.on('closed', () => { settingsWin = null; });
 }
+
+// 当前主题（桌宠/聊天窗口启动时来问）
+ipcMain.handle('theme-get', () => currentTheme());
 
 // 配置读写 + 打开/关闭窗口
 ipcMain.handle('config-get', () => loadConfig());

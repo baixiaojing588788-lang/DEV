@@ -10,6 +10,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   onStatus: (cb) => ipcRenderer.on('pet-status', (_e, data) => cb(data)),
   // 播放一次性动画（如 cheer 完成动画）
   onPlay: (cb) => ipcRenderer.on('pet-play', (_e, name) => cb(name)),
+  // 切换主题（{ id, name, dir, persona }）
+  onTheme: (cb) => ipcRenderer.on('pet-theme', (_e, t) => cb(t)),
   // 暂停 / 继续
   onPause: (cb) => ipcRenderer.on('pet-pause', (_e, p) => cb(p)),
 

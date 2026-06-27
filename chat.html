@@ -152,8 +152,8 @@
 </head>
 <body>
   <div class="header">
-    <img src="assets/little-mao-puppy/frames/wave/01.png" alt="" />
-    <span class="name">小鸡毛</span>
+    <img id="avatar" alt="" />
+    <span class="name" id="petName">小鸡毛</span>
     <button class="gear" id="gear" title="设置">⚙</button>
   </div>
 
@@ -178,12 +178,21 @@
       webBtn.classList.toggle('on', webEnabled);
     });
 
-    // 给桌宠一点性格
-    const SYSTEM = {
-      role: 'system',
-      content: '你是一只可爱的桌面宠物小狗，名叫“小鸡毛”。用简短、亲切、口语化的中文回复，偶尔俏皮一点。',
-    };
+    // 人设随主题变化（content 在拿到主题后填入）
+    const SYSTEM = { role: 'system', content: '' };
     let history = [SYSTEM];
+
+    // 应用主题：头像、名字、AI 人设
+    const avatarEl = document.getElementById('avatar');
+    const nameEl = document.getElementById('petName');
+    function applyTheme(t) {
+      if (!t) return;
+      avatarEl.src = t.dir + '/frames/wave/01.png';
+      nameEl.textContent = t.name;
+      SYSTEM.content = t.persona;   // history[0] 指向同一对象，自动更新
+    }
+    window.chatAPI.getTheme().then(applyTheme);
+    window.chatAPI.onTheme(applyTheme);
 
     function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
 
