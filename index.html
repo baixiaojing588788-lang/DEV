@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    /* 透明背景 + 撑满窗口 + 居中 */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #pet {
+      width: 160px;
+      height: 160px;
+      /* 像素风：放大时保持锐利，不要模糊 */
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+  </style>
+</head>
+<body>
+  <img id="pet" src="assets/little-mao-puppy/frames/walk/01.png" alt="pet" />
+</body>
+</html>
