@@ -4,12 +4,22 @@
   <meta charset="utf-8" />
   <style>
     * { box-sizing: border-box; }
+    :root {
+      --bg: #1c1c1e;
+      --bar: rgba(28, 28, 30, 0.72);
+      --line: rgba(255, 255, 255, 0.08);
+      --pet-bubble: #2c2c2e;
+      --blue: #0a84ff;            /* iOS 深色模式蓝 */
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --field: #2c2c2e;
+    }
     html, body {
       margin: 0;
       height: 100%;
       font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
-      background: #fff;
-      color: #000;
+      background: var(--bg);
+      color: var(--text);
     }
     body {
       display: flex;
@@ -27,9 +37,9 @@
       gap: 8px;
       height: 56px;
       padding-top: 6px;            /* 给 Mac 红绿灯按钮留空间 */
-      border-bottom: 1px solid #e5e5e5;
-      background: rgba(250, 250, 250, 0.9);
-      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--line);
+      background: var(--bar);
+      backdrop-filter: blur(20px);
     }
     .header img {
       width: 28px;
@@ -46,7 +56,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      background: #fff;
+      background: var(--bg);
     }
 
     .row { display: flex; }
@@ -55,38 +65,38 @@
 
     .bubble {
       max-width: 72%;
-      padding: 8px 12px;
-      border-radius: 18px;
+      padding: 9px 13px;
+      border-radius: 20px;
       font-size: 15px;
       line-height: 1.35;
       word-wrap: break-word;
       white-space: pre-wrap;
     }
     .me .bubble {
-      background: #0b93f6;          /* iMessage 蓝 */
+      background: var(--blue);
       color: #fff;
-      border-bottom-right-radius: 4px;
+      border-bottom-right-radius: 5px;
     }
     .pet .bubble {
-      background: #e9e9eb;          /* iMessage 灰 */
-      color: #000;
-      border-bottom-left-radius: 4px;
+      background: var(--pet-bubble);
+      color: var(--text);
+      border-bottom-left-radius: 5px;
     }
-    .pet .bubble.error { background: #ffe2e2; color: #b00020; }
+    .pet .bubble.error { background: #3a2326; color: #ff6b6b; }
 
     /* 头像右侧的设置按钮 */
     .gear {
       -webkit-app-region: no-drag;
       position: absolute; right: 12px;
       border: none; background: none; cursor: pointer;
-      font-size: 16px; opacity: 0.6;
+      font-size: 16px; color: var(--muted); opacity: 0.8;
     }
-    .gear:hover { opacity: 1; }
+    .gear:hover { color: var(--text); opacity: 1; }
 
     /* 正在输入的小圆点 */
     .typing { display: flex; gap: 3px; align-items: center; padding: 10px 12px; }
     .typing span {
-      width: 6px; height: 6px; border-radius: 50%; background: #9a9a9f;
+      width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
       animation: blink 1.2s infinite both;
     }
     .typing span:nth-child(2) { animation-delay: 0.2s; }
@@ -100,30 +110,44 @@
       gap: 8px;
       align-items: flex-end;
       padding: 10px 12px;
-      border-top: 1px solid #e5e5e5;
-      background: #fafafa;
+      border-top: 1px solid var(--line);
+      background: var(--bar);
+      backdrop-filter: blur(20px);
     }
     #input {
       flex: 1 1 auto;
       resize: none;
       max-height: 100px;
       min-height: 36px;
-      padding: 8px 12px;
+      padding: 8px 13px;
       font-size: 15px;
       font-family: inherit;
-      border: 1px solid #d0d0d5;
+      color: var(--text);
+      background: var(--field);
+      border: 1px solid transparent;
       border-radius: 18px;
       outline: none;
     }
-    #input:focus { border-color: #0b93f6; }
+    #input::placeholder { color: var(--muted); }
+    #input:focus { border-color: var(--blue); }
     #send {
       flex: 0 0 auto;
       width: 36px; height: 36px;
       border: none; border-radius: 50%;
-      background: #0b93f6; color: #fff;
+      background: var(--blue); color: #fff;
       font-size: 18px; cursor: pointer;
     }
-    #send:disabled { background: #c4c4c9; cursor: default; }
+    #send:disabled { background: #3a3a3c; color: var(--muted); cursor: default; }
+
+    /* 联网搜索开关 */
+    #web {
+      flex: 0 0 auto;
+      width: 36px; height: 36px;
+      border: none; border-radius: 50%;
+      background: var(--field); color: var(--muted);
+      font-size: 16px; cursor: pointer;
+    }
+    #web.on { background: rgba(10, 132, 255, 0.18); color: var(--blue); }
   </style>
 </head>
 <body>
@@ -136,6 +160,7 @@
   <div class="messages" id="messages"></div>
 
   <div class="composer">
+    <button id="web" class="on" title="联网搜索（开/关）">🌐</button>
     <textarea id="input" rows="1" placeholder="发消息…"></textarea>
     <button id="send">↑</button>
   </div>
@@ -144,6 +169,14 @@
     const messagesEl = document.getElementById('messages');
     const input = document.getElementById('input');
     const sendBtn = document.getElementById('send');
+    const webBtn = document.getElementById('web');
+
+    // 联网搜索开关，默认开启
+    let webEnabled = true;
+    webBtn.addEventListener('click', () => {
+      webEnabled = !webEnabled;
+      webBtn.classList.toggle('on', webEnabled);
+    });
 
     // 给桌宠一点性格
     const SYSTEM = {
@@ -220,7 +253,7 @@
       pending = '';
       streamEnded = false;
 
-      window.chatAPI.send(history);
+      window.chatAPI.send({ messages: history, web: webEnabled });
       startTypewriter();
     }
 

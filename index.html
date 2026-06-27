@@ -200,6 +200,13 @@
       window.petAPI.setDragging(false);
     });
 
+    // 双击桌宠打开设置面板
+    pet.addEventListener('dblclick', () => window.petAPI.openSettings());
+
+    // 鼠标悬停时停下，移开继续
+    pet.addEventListener('mouseenter', () => window.petAPI.setHover(true));
+    pet.addEventListener('mouseleave', () => window.petAPI.setHover(false));
+
     // 万一消息还没来，先默认待机
     play('idle');
   </script>

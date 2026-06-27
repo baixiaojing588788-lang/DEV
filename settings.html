@@ -4,31 +4,40 @@
   <meta charset="utf-8" />
   <style>
     * { box-sizing: border-box; }
+    :root {
+      --bg: #1c1c1e;
+      --text: #f2f2f7;
+      --muted: #8e8e93;
+      --field: #2c2c2e;
+      --blue: #0a84ff;
+    }
     html, body {
       margin: 0; height: 100%;
       font-family: -apple-system, "PingFang SC", sans-serif;
-      background: #fff; color: #111;
+      background: var(--bg); color: var(--text);
     }
     .titlebar {
       -webkit-app-region: drag;
       height: 38px;
     }
-    .body { padding: 4px 22px 22px; }
-    h1 { font-size: 16px; margin: 0 0 4px; }
-    .hint { font-size: 12px; color: #888; margin: 0 0 16px; }
-    label { display: block; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+    .body { padding: 4px 24px 24px; }
+    h1 { font-size: 17px; margin: 0 0 4px; }
+    .hint { font-size: 12px; color: var(--muted); margin: 0 0 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 5px; }
     input {
-      width: 100%; padding: 8px 10px; font-size: 13px;
-      border: 1px solid #d0d0d5; border-radius: 8px; outline: none;
+      width: 100%; padding: 9px 12px; font-size: 13px;
+      color: var(--text); background: var(--field);
+      border: 1px solid transparent; border-radius: 10px; outline: none;
     }
-    input:focus { border-color: #0b93f6; }
-    .row-btns { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+    input::placeholder { color: var(--muted); }
+    input:focus { border-color: var(--blue); }
+    .row-btns { margin-top: 22px; display: flex; justify-content: flex-end; gap: 10px; }
     button {
-      padding: 8px 16px; font-size: 13px; border-radius: 8px; cursor: pointer; border: none;
+      padding: 9px 18px; font-size: 13px; border-radius: 10px; cursor: pointer; border: none;
     }
-    #cancel { background: #eee; color: #333; }
-    #save { background: #0b93f6; color: #fff; }
-    #status { font-size: 12px; color: #2a8c3c; margin-top: 10px; height: 16px; }
+    #cancel { background: #3a3a3c; color: var(--text); }
+    #save { background: var(--blue); color: #fff; }
+    #status { font-size: 12px; color: #30d158; margin-top: 12px; height: 16px; }
   </style>
 </head>
 <body>
@@ -41,7 +50,7 @@
     <input id="apiKey" type="password" placeholder="sk-or-..." />
 
     <label>模型名称</label>
-    <input id="model" type="text" placeholder="anthropic/claude-3.5-sonnet" />
+    <input id="model" type="text" placeholder="anthropic/claude-haiku-4.5" />
 
     <label>接口地址</label>
     <input id="baseURL" type="text" placeholder="https://openrouter.ai/api/v1" />

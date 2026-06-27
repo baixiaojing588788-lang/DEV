@@ -11,6 +11,7 @@ let chatWin = null;       // 聊天窗口
 let settingsWin = null;   // 设置窗口
 let paused = false;       // 暂停标志：控制走动和动画
 let dragging = false;     // 正在被鼠标拖动
+let hovering = false;     // 鼠标悬停在身上
 let homeX = 0;            // "家"的横坐标，走完会回到这里（拖动后会更新）
 
 // ---- 本地配置（存在应用数据目录，不在项目里，也不会进 Git）----
@@ -36,7 +37,7 @@ function saveConfig(partial) {
 }
 
 // 走动/等待需要暂时让路的两种情况
-const isFrozen = () => paused || dragging;
+const isFrozen = () => paused || dragging || hovering;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -67,6 +68,8 @@ function createWindow() {
   ipcMain.on('pet-move', (_e, { x, y }) => {
     if (win) win.setPosition(Math.round(x), Math.round(y));
   });
+  // 鼠标悬停：停下；移开：继续
+  ipcMain.on('pet-hover', (_e, isHovering) => { hovering = isHovering; });
 
   // 等画面加载完，再开始自动走动的循环
   win.webContents.on('did-finish-load', () => {
@@ -84,10 +87,6 @@ function showMenu() {
     {
       label: '聊天',
       click: () => openChat(),
-    },
-    {
-      label: '设置',
-      click: () => openSettings(),
     },
     { type: 'separator' },
     {
@@ -123,7 +122,7 @@ function openChat() {
     minHeight: 380,
     title: '小鸡毛',
     titleBarStyle: 'hiddenInset',   // Mac 风格：保留红绿灯按钮，标题栏自定义
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1c1c1e',     // 深色
     webPreferences: {
       preload: path.join(__dirname, 'chat-preload.js'),
     },
@@ -145,7 +144,7 @@ function openSettings() {
     resizable: false,
     title: '设置',
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1c1c1e',
     webPreferences: {
       preload: path.join(__dirname, 'settings-preload.js'),
     },
@@ -161,7 +160,7 @@ ipcMain.on('open-settings', () => openSettings());
 ipcMain.on('close-settings', () => { if (settingsWin) settingsWin.close(); });
 
 // ---- 聊天：流式请求 OpenRouter，边收边转发给聊天窗口 ----
-ipcMain.on('chat-send', async (e, messages) => {
+ipcMain.on('chat-send', async (e, { messages, web }) => {
   const wc = e.sender;
   const cfg = loadConfig();
 
@@ -180,7 +179,13 @@ ipcMain.on('chat-send', async (e, messages) => {
         'HTTP-Referer': 'http://localhost',  // OpenRouter 建议带上
         'X-Title': 'little-mao-puppy',
       },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true }),
+      body: JSON.stringify({
+        model: cfg.model,
+        messages,
+        stream: true,
+        // OpenRouter 内置联网搜索插件（Exa 驱动）
+        ...(web ? { plugins: [{ id: 'web' }] } : {}),
+      }),
     });
 
     if (!res.ok) {

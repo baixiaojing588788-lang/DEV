@@ -16,4 +16,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   // 拖动：开始/结束 + 实时位置
   setDragging: (b) => ipcRenderer.send('pet-drag', b),
   moveTo: (x, y) => ipcRenderer.send('pet-move', { x, y }),
+  // 双击打开设置
+  openSettings: () => ipcRenderer.send('open-settings'),
+  // 鼠标悬停状态
+  setHover: (b) => ipcRenderer.send('pet-hover', b),
 });
