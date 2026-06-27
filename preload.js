@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   onSay: (cb) => ipcRenderer.on('pet-say', (_e, text) => cb(text)),
   // 暂停 / 继续
   onPause: (cb) => ipcRenderer.on('pet-pause', (_e, p) => cb(p)),
+
+  // 拖动：开始/结束 + 实时位置
+  setDragging: (b) => ipcRenderer.send('pet-drag', b),
+  moveTo: (x, y) => ipcRenderer.send('pet-move', { x, y }),
 });

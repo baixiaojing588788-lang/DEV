@@ -1,10 +1,14 @@
-const { app, BrowserWindow, screen, Menu } = require('electron');
+const { app, BrowserWindow, screen, Menu, ipcMain } = require('electron');
 const path = require('path');
 
 const WIN_SIZE = 160;
 
 let win;
-let paused = false;   // 暂停标志：控制走动和动画
+let paused = false;       // 暂停标志：控制走动和动画
+let dragging = false;     // 正在被鼠标拖动
+
+// 走动/等待需要暂时让路的两种情况
+const isFrozen = () => paused || dragging;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -25,6 +29,12 @@ function createWindow() {
 
   // 右键弹出 Mac 原生菜单
   win.webContents.on('context-menu', () => showMenu());
+
+  // 鼠标拖动：画面把窗口该到的位置发过来，主进程移动窗口
+  ipcMain.on('pet-drag', (_e, isDragging) => { dragging = isDragging; });
+  ipcMain.on('pet-move', (_e, { x, y }) => {
+    if (win) win.setPosition(Math.round(x), Math.round(y));
+  });
 
   // 等画面加载完，再开始自动走动的循环
   win.webContents.on('did-finish-load', () => {
@@ -71,7 +81,7 @@ function sleep(ms) {
     let remaining = ms;
     const step = 50;
     const t = setInterval(() => {
-      if (paused) return;
+      if (isFrozen()) return;
       remaining -= step;
       if (remaining <= 0) {
         clearInterval(t);
@@ -87,15 +97,14 @@ function walkTo(targetX) {
   return new Promise((resolve) => {
     const MOVE_TICK = 16;   // 约 60 次/秒
     const SPEED = 2;        // 每次移动 2 像素 -> 约 120 像素/秒
-    const [, y] = win.getPosition();
     const startX = win.getPosition()[0];
     const dir = targetX >= startX ? 1 : -1;
 
     setState('walk', dir > 0 ? 'right' : 'left');
 
     const timer = setInterval(() => {
-      if (paused) return;   // 暂停时原地不动
-      const [x] = win.getPosition();
+      if (isFrozen()) return;            // 暂停或被拖动时原地不动
+      const [x, y] = win.getPosition();  // 每次读当前 y，尊重拖动后的高度
       if (Math.abs(x - targetX) <= SPEED) {
         win.setPosition(Math.round(targetX), y);
         clearInterval(timer);

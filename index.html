@@ -140,6 +140,31 @@
       }
     });
 
+    // ---- 鼠标拖动（只响应左键，右键留给菜单）----
+    let dragging = false;
+    let offX = 0, offY = 0;   // 抓取点相对窗口左上角的位置
+
+    pet.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return;     // 只左键
+      dragging = true;
+      offX = e.clientX;
+      offY = e.clientY;
+      window.petAPI.setDragging(true);
+      e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      // screenX/Y 是屏幕全局坐标；减去抓取偏移 = 窗口左上角应在的位置
+      window.petAPI.moveTo(e.screenX - offX, e.screenY - offY);
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (!dragging) return;
+      dragging = false;
+      window.petAPI.setDragging(false);
+    });
+
     // 万一消息还没来，先默认待机
     play('idle');
   </script>
