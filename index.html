@@ -110,9 +110,9 @@
       if (!paused) startTimer();
     }
 
-    // 朝向：素材默认朝右，朝左时水平翻转
+    // 朝向：素材默认朝左，朝右时才水平翻转
     function setFacing(facing) {
-      pet.style.transform = facing === 'left' ? 'scaleX(-1)' : 'scaleX(1)';
+      pet.style.transform = facing === 'right' ? 'scaleX(-1)' : 'scaleX(1)';
     }
 
     // 收主进程的指令
