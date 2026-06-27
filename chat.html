@@ -72,6 +72,16 @@
       color: #000;
       border-bottom-left-radius: 4px;
     }
+    .pet .bubble.error { background: #ffe2e2; color: #b00020; }
+
+    /* 头像右侧的设置按钮 */
+    .gear {
+      -webkit-app-region: no-drag;
+      position: absolute; right: 12px;
+      border: none; background: none; cursor: pointer;
+      font-size: 16px; opacity: 0.6;
+    }
+    .gear:hover { opacity: 1; }
 
     /* 正在输入的小圆点 */
     .typing { display: flex; gap: 3px; align-items: center; padding: 10px 12px; }
@@ -120,6 +130,7 @@
   <div class="header">
     <img src="assets/little-mao-puppy/frames/wave/01.png" alt="" />
     <span class="name">小鸡毛</span>
+    <button class="gear" id="gear" title="设置">⚙</button>
   </div>
 
   <div class="messages" id="messages"></div>
@@ -134,53 +145,114 @@
     const input = document.getElementById('input');
     const sendBtn = document.getElementById('send');
 
-    function scrollToBottom() {
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
+    // 给桌宠一点性格
+    const SYSTEM = {
+      role: 'system',
+      content: '你是一只可爱的桌面宠物小狗，名叫“小鸡毛”。用简短、亲切、口语化的中文回复，偶尔俏皮一点。',
+    };
+    let history = [SYSTEM];
 
-    function addBubble(text, who) {
+    function scrollToBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+    // 创建一个气泡，返回 .bubble 元素；dots=true 时先显示等待中的小圆点
+    function addBubble(who, text, dots) {
       const row = document.createElement('div');
       row.className = 'row ' + who;
       const b = document.createElement('div');
       b.className = 'bubble';
-      b.textContent = text;
+      if (dots) {
+        b.classList.add('typing');
+        b.innerHTML = '<span></span><span></span><span></span>';
+      } else {
+        b.textContent = text || '';
+      }
       row.appendChild(b);
       messagesEl.appendChild(row);
       scrollToBottom();
+      return b;
     }
 
-    // 显示"正在输入"，返回一个移除它的函数
-    function showTyping() {
-      const row = document.createElement('div');
-      row.className = 'row pet';
-      row.innerHTML = '<div class="bubble typing"><span></span><span></span><span></span></div>';
-      messagesEl.appendChild(row);
-      scrollToBottom();
-      return () => row.remove();
+    // ---- 打字机：逐字把收到的内容显示出来 ----
+    let typingTimer = null;
+    let pending = '';       // 待显示的字符
+    let liveBubble = null;  // 当前正在打字的气泡
+    let liveText = '';      // 已显示的文本
+    let streamEnded = false;
+
+    function startTypewriter() {
+      if (typingTimer) return;
+      typingTimer = setInterval(() => {
+        if (pending.length > 0) {
+          liveText += pending[0];
+          pending = pending.slice(1);
+          liveBubble.classList.remove('typing');
+          liveBubble.textContent = liveText;   // 第一个字会自动清掉小圆点
+          scrollToBottom();
+        } else if (streamEnded) {
+          clearInterval(typingTimer);
+          typingTimer = null;
+          history.push({ role: 'assistant', content: liveText });
+          liveBubble = null;
+          setBusy(false);
+        }
+      }, 18);
     }
 
-    async function send() {
+    function setBusy(busy) {
+      input.disabled = busy;
+      sendBtn.disabled = busy;
+      if (!busy) input.focus();
+    }
+
+    function send() {
       const text = input.value.trim();
-      if (!text) return;
-      addBubble(text, 'me');
+      if (!text || sendBtn.disabled) return;
+
+      addBubble('me', text);
+      history.push({ role: 'user', content: text });
       input.value = '';
       input.style.height = 'auto';
+      setBusy(true);
 
-      const removeTyping = showTyping();
-      // 问主进程要回复（现在固定返回"我收到啦"）
-      const reply = await window.chatAPI.send(text);
-      removeTyping();
-      addBubble(reply, 'pet');
+      // 准备打字目标气泡（先显示等待小圆点）
+      liveBubble = addBubble('pet', '', true);
+      liveText = '';
+      pending = '';
+      streamEnded = false;
+
+      window.chatAPI.send(history);
+      startTypewriter();
     }
 
+    // 收到一个片段：丢进队列，逐字显示
+    window.chatAPI.onToken((t) => { pending += t; startTypewriter(); });
+
+    // 流结束：等队列显示完再收尾（在 typewriter 里处理）
+    window.chatAPI.onEnd(() => { streamEnded = true; });
+
+    // 出错：把当前气泡变成错误提示
+    window.chatAPI.onError((msg) => {
+      pending = '';
+      streamEnded = true;
+      if (typingTimer) { clearInterval(typingTimer); typingTimer = null; }
+      if (liveBubble) {
+        liveBubble.classList.remove('typing');
+        liveBubble.classList.add('error');
+        liveBubble.textContent = '⚠️ ' + msg;
+        liveBubble = null;
+      } else {
+        addBubble('pet', '⚠️ ' + msg).classList.add('error');
+      }
+      // 这次没有有效回复，把刚加进历史的用户消息留着，方便配置好后重发
+      setBusy(false);
+    });
+
     sendBtn.addEventListener('click', send);
+    document.getElementById('gear').addEventListener('click', () => window.chatAPI.openSettings());
 
     // 回车发送，Shift+回车换行
     input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        send();
-      }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
     });
 
     // 输入框随内容自动长高
@@ -189,8 +261,8 @@
       input.style.height = Math.min(input.scrollHeight, 100) + 'px';
     });
 
-    // 开场白
-    addBubble('你好呀，想聊点什么？', 'pet');
+    // 开场白（不进对话历史）
+    addBubble('pet', '你好呀，想聊点什么？');
     input.focus();
   </script>
 </body>

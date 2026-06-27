@@ -1,13 +1,37 @@
 const { app, BrowserWindow, screen, Menu, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 const WIN_SIZE = 160;
 
 let win;
 let chatWin = null;       // 聊天窗口
+let settingsWin = null;   // 设置窗口
 let paused = false;       // 暂停标志：控制走动和动画
 let dragging = false;     // 正在被鼠标拖动
 let homeX = 0;            // "家"的横坐标，走完会回到这里（拖动后会更新）
+
+// ---- 本地配置（存在应用数据目录，不在项目里，也不会进 Git）----
+const DEFAULT_CONFIG = {
+  apiKey: '',
+  model: 'anthropic/claude-haiku-4.5',
+  baseURL: 'https://openrouter.ai/api/v1',
+};
+function configPath() {
+  return path.join(app.getPath('userData'), 'config.json');
+}
+function loadConfig() {
+  try {
+    return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(configPath(), 'utf8')) };
+  } catch {
+    return { ...DEFAULT_CONFIG };
+  }
+}
+function saveConfig(partial) {
+  const merged = { ...loadConfig(), ...partial };
+  fs.writeFileSync(configPath(), JSON.stringify(merged, null, 2));
+  return merged;
+}
 
 // 走动/等待需要暂时让路的两种情况
 const isFrozen = () => paused || dragging;
@@ -59,6 +83,10 @@ function showMenu() {
       label: '聊天',
       click: () => openChat(),
     },
+    {
+      label: '设置',
+      click: () => openSettings(),
+    },
     { type: 'separator' },
     {
       label: paused ? '继续' : '暂停',
@@ -102,9 +130,89 @@ function openChat() {
   chatWin.on('closed', () => { chatWin = null; });
 }
 
-// 聊天回复（暂时固定；以后这里换成真正的 AI 即可）
-ipcMain.handle('chat-message', async (_e, _text) => {
-  return '我收到啦';
+// ---- 设置窗口 ----
+function openSettings() {
+  if (settingsWin && !settingsWin.isDestroyed()) {
+    settingsWin.show();
+    settingsWin.focus();
+    return;
+  }
+  settingsWin = new BrowserWindow({
+    width: 440,
+    height: 380,
+    resizable: false,
+    title: '设置',
+    titleBarStyle: 'hiddenInset',
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      preload: path.join(__dirname, 'settings-preload.js'),
+    },
+  });
+  settingsWin.loadFile('settings.html');
+  settingsWin.on('closed', () => { settingsWin = null; });
+}
+
+// 配置读写 + 打开/关闭窗口
+ipcMain.handle('config-get', () => loadConfig());
+ipcMain.handle('config-save', (_e, partial) => saveConfig(partial));
+ipcMain.on('open-settings', () => openSettings());
+ipcMain.on('close-settings', () => { if (settingsWin) settingsWin.close(); });
+
+// ---- 聊天：流式请求 OpenRouter，边收边转发给聊天窗口 ----
+ipcMain.on('chat-send', async (e, messages) => {
+  const wc = e.sender;
+  const cfg = loadConfig();
+
+  if (!cfg.apiKey) {
+    wc.send('chat-error', '还没有配置 API Key，请点右键菜单的「设置」先填写。');
+    return;
+  }
+
+  try {
+    const url = cfg.baseURL.replace(/\/+$/, '') + '/chat/completions';
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + cfg.apiKey,
+        'HTTP-Referer': 'http://localhost',  // OpenRouter 建议带上
+        'X-Title': 'little-mao-puppy',
+      },
+      body: JSON.stringify({ model: cfg.model, messages, stream: true }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      wc.send('chat-error', `请求失败（${res.status}）：${text.slice(0, 300)}`);
+      return;
+    }
+
+    // 解析 SSE：每行 "data: {...}"，取出 delta.content 转发
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let nl;
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line.startsWith('data:')) continue;
+        const data = line.slice(5).trim();
+        if (data === '[DONE]') continue;
+        try {
+          const json = JSON.parse(data);
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) wc.send('chat-token', delta);
+        } catch { /* 忽略心跳/空行 */ }
+      }
+    }
+    wc.send('chat-end');
+  } catch (err) {
+    wc.send('chat-error', '网络或接口错误：' + err.message);
+  }
 });
 
 // ---- 告诉画面：现在播什么动画、朝哪边 ----
