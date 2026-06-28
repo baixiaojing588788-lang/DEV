@@ -12,4 +12,8 @@ contextBridge.exposeInMainWorld('chatAPI', {
   // 当前主题 + 主题切换
   getTheme: () => ipcRenderer.invoke('theme-get'),
   onTheme: (cb) => ipcRenderer.on('chat-theme', (_e, t) => cb(t)),
+  // 语音转写：传 WAV 的 base64，返回文字
+  transcribe: (payload) => ipcRenderer.invoke('transcribe', payload),
+  // 调试日志
+  rlog: (m) => ipcRenderer.send('rlog', m),
 });

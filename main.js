@@ -1,4 +1,4 @@
-const { app, BrowserWindow, screen, Menu, ipcMain } = require('electron');
+const { app, BrowserWindow, screen, Menu, ipcMain, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -133,6 +133,10 @@ function showMenu() {
         click: () => setTheme(p.id),
       })),
     },
+    {
+      label: '设置',
+      click: () => openSettings(),
+    },
     { type: 'separator' },
     {
       label: paused ? '继续' : '暂停',
@@ -170,6 +174,7 @@ function openChat() {
     backgroundColor: '#f1f0fd',     // 浅色（与渐变背景匹配）
     webPreferences: {
       preload: path.join(__dirname, 'chat-preload.js'),
+      backgroundThrottling: false,  // 不在后台时也保持重绘（转写完成能即时显示）
     },
   });
   chatWin.loadFile('chat.html');
@@ -198,6 +203,9 @@ function openSettings() {
   settingsWin.on('closed', () => { settingsWin = null; });
 }
 
+// 渲染端调试日志
+ipcMain.on('rlog', (_e, m) => console.log('[renderer]', m));
+
 // 当前主题（桌宠/聊天窗口启动时来问）
 ipcMain.handle('theme-get', () => currentTheme());
 
@@ -206,6 +214,56 @@ ipcMain.handle('config-get', () => loadConfig());
 ipcMain.handle('config-save', (_e, partial) => saveConfig(partial));
 ipcMain.on('open-settings', () => openSettings());
 ipcMain.on('close-settings', () => { if (settingsWin) settingsWin.close(); });
+
+// ---- 语音转写：把录音发给支持音频的模型，返回文字 ----
+const TRANSCRIBE_MODEL = 'google/gemini-2.5-flash-lite';
+ipcMain.handle('transcribe', async (_e, { data }) => {
+  const cfg = loadConfig();
+  if (!cfg.apiKey) throw new Error('还没有配置 API Key');
+  console.log('[transcribe] 收到音频，base64 长度:', data ? data.length : 0);
+  const url = cfg.baseURL.replace(/\/+$/, '') + '/chat/completions';
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000); // 30 秒超时，避免卡死
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      signal: ctrl.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + cfg.apiKey,
+        'HTTP-Referer': 'http://localhost',
+        'X-Title': 'little-mao-puppy',
+      },
+      body: JSON.stringify({
+        model: TRANSCRIBE_MODEL,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: '请把这段语音逐字转写成文字，只返回转写内容本身，不要任何解释。' },
+            { type: 'input_audio', input_audio: { data, format: 'wav' } },
+          ],
+        }],
+      }),
+    });
+    console.log('[transcribe] 响应状态:', res.status);
+    const body = await res.text();
+    if (!res.ok) {
+      console.log('[transcribe] 错误响应:', body.slice(0, 500));
+      throw new Error(`(${res.status}) ${body.slice(0, 200)}`);
+    }
+    const json = JSON.parse(body);
+    const text = (json.choices?.[0]?.message?.content || '').trim();
+    console.log('[transcribe] 转写结果:', JSON.stringify(text).slice(0, 200));
+    return text;
+  } catch (err) {
+    console.log('[transcribe] 异常:', err.name, err.message);
+    if (err.name === 'AbortError') throw new Error('转写超时（30 秒无响应）');
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+});
 
 // ---- 聊天：流式请求 OpenRouter，边收边转发给聊天窗口 ----
 ipcMain.on('chat-send', async (e, { messages, web }) => {
@@ -385,6 +443,11 @@ function startStatusServer() {
 }
 
 app.whenReady().then(() => {
+  // 放行麦克风等媒体权限（录音用）
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
+    cb(true);
+  });
+
   createWindow();
   startStatusServer();
 
