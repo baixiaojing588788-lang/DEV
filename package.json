@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "com.littlemao.puppy",
-    "productName": "小鸡毛",
+    "productName": "我的桌宠",
     "directories": {
       "output": "release"
     },
