@@ -1,4 +1,5 @@
 node_modules/
+release/
 .tools/
 config.json
 .DS_Store
